@@ -1,2 +1,3 @@
-aws_region     = "us-east-1"
-aws_account_id = "111111111111"  # replace with your dev account ID
+aws_region = "us-east-1"
+# aws_account_id is injected by CI via TF_VAR_aws_account_id (GitHub Secret: AWS_ACCOUNT_ID_DEV)
+# Do not commit account IDs here.

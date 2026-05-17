@@ -30,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     if: github.event_name == 'push' || inputs.environment == 'dev'
+    env:
+      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID_DEV }}
     defaults:
       run:
         working-directory: terraform/environments/dev
@@ -51,6 +53,8 @@ jobs:
     environment: staging
     needs: apply-dev
     if: github.event_name == 'push' || inputs.environment == 'staging'
+    env:
+      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID_STAGING }}
     defaults:
       run:
         working-directory: terraform/environments/staging
@@ -74,6 +78,8 @@ jobs:
     if: >
       (github.event_name == 'push' || inputs.environment == 'prod') &&
       (github.event_name != 'workflow_dispatch' || inputs.confirm_prod == 'CONFIRM')
+    env:
+      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
     defaults:
       run:
         working-directory: terraform/environments/prod

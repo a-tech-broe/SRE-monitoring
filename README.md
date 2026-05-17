@@ -94,6 +94,7 @@ SRE-monitoring/
 ├── docs/
 │   ├── architecture.md
 │   ├── onboarding.md
+│   ├── github-secrets.md     ← required secrets & variables reference
 │   ├── runbooks/
 │   └── adr/
 │
@@ -114,19 +115,46 @@ SRE-monitoring/
 
 ## Environments
 
-| Env | AWS Account | EKS Node Type | HA |
-|-----|-------------|---------------|----|
-| dev | 111111111111 | m6i.xlarge ×2 | Single NAT |
-| staging | 222222222222 | m6i.2xlarge ×3 | Multi-AZ |
-| prod | 333333333333 | m6i.4xlarge ×3 + Spot pool | Multi-AZ |
+| Env | EKS Node Type | HA | Terraform State Bucket |
+|-----|---------------|----|------------------------|
+| dev | m6i.xlarge ×2 | Single NAT | `bathbucket31` |
+| staging | m6i.2xlarge ×3 | Multi-AZ | *(configure in backend.tf)* |
+| prod | m6i.4xlarge ×3 + Spot pool | Multi-AZ | *(configure in backend.tf)* |
 
-> Replace account IDs in `terraform/environments/*/terraform.tfvars` with your real values.
+> AWS account IDs are **not** stored in this repo. They are injected at runtime from GitHub Secrets (`AWS_ACCOUNT_ID_DEV`, `AWS_ACCOUNT_ID_STAGING`, `AWS_ACCOUNT_ID_PROD`).
+
+---
+
+## Credentials & Secrets
+
+**No credentials, account IDs, or tokens are committed to this repository.**
+
+| What | Where it lives |
+|------|---------------|
+| AWS account IDs | GitHub Secret → injected as `TF_VAR_aws_account_id` |
+| AWS auth (CI) | GitHub OIDC → no static keys |
+| Grafana tokens | GitHub Secret (`GRAFANA_SA_TOKEN_*`) |
+| PagerDuty / Slack keys | AWS Secrets Manager (mounted into Alertmanager at runtime) |
+| Terraform state | S3 backend (encrypted, per environment) |
+
+See [docs/github-secrets.md](docs/github-secrets.md) for the full list of secrets to configure before your first deploy.
 
 ---
 
 ## Getting Started
 
-### 1. Bootstrap your workstation
+### 1. Configure GitHub Secrets
+
+Before anything runs in CI, add the required secrets to the repo:
+
+```
+GitHub → Settings → Secrets and variables → Actions
+```
+
+Required secrets: `AWS_ROLE_DEV`, `AWS_ACCOUNT_ID_DEV`, `GRAFANA_URL_DEV`, `GRAFANA_SA_TOKEN_DEV`, `EKS_CLUSTER_DEV` (and equivalents for staging/prod).
+Full list: [docs/github-secrets.md](docs/github-secrets.md)
+
+### 2. Bootstrap your workstation
 
 ```bash
 make bootstrap
@@ -134,7 +162,7 @@ make bootstrap
 
 Installs: terraform, kubectl, helm, tflint, checkov, pre-commit.
 
-### 2. Deploy infrastructure
+### 3. Deploy infrastructure
 
 ```bash
 make init ENV=dev
@@ -142,14 +170,14 @@ make plan ENV=dev
 make apply ENV=dev
 ```
 
-### 3. Deploy the monitoring stack
+### 4. Deploy the monitoring stack
 
 ```bash
 aws eks update-kubeconfig --name observability-dev --region us-east-1
 make deploy-dev
 ```
 
-### 4. Validate everything locally
+### 5. Validate everything locally
 
 ```bash
 ./scripts/validate.sh
@@ -201,8 +229,9 @@ Dashboards live as JSON under `dashboards/` and are synced to Grafana on every m
 
 ## Security
 
+- **No credentials in the repo** — AWS auth uses GitHub OIDC; account IDs injected from GitHub Secrets
 - EKS API endpoint is **private-only** across all environments
-- All pod identities use **IRSA** — no static IAM keys
+- All pod identities use **IRSA** — no static IAM keys anywhere in the stack
 - S3 buckets: private, SSE-S3 encrypted, public access blocked
 - EKS secrets encrypted with a per-cluster **KMS** key
 - **VPC Flow Logs** enabled on all VPCs
@@ -236,6 +265,7 @@ make pre-commit         # full pre-commit suite
 
 - [Architecture](docs/architecture.md)
 - [Onboarding](docs/onboarding.md)
+- [GitHub Secrets & Variables](docs/github-secrets.md)
 - [Runbook: High Memory](docs/runbooks/high-memory.md)
 - [Runbook: Alert Silence](docs/runbooks/alert-silence.md)
 - [ADR-001: EKS Platform](docs/adr/001-eks-platform.md)
