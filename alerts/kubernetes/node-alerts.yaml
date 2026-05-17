@@ -1,0 +1,73 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  groups:
+    - name: node.rules
+      interval: 1m
+      rules:
+        - alert: NodeNotReady
+          expr: kube_node_status_condition{condition="Ready", status="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Node {{ $labels.node }} not ready"
+            description: "Node has been NotReady for more than 5 minutes."
+            runbook_url: "https://github.com/your-org/SRE-monitoring/blob/main/docs/runbooks/node-not-ready.md"
+
+        - alert: NodeHighCPU
+          expr: |
+            (1 - avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.85
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Node {{ $labels.instance }} CPU > 85%"
+            description: "Node CPU usage is {{ $value | humanizePercentage }}."
+
+        - alert: NodeHighMemory
+          expr: |
+            (
+              1 - (
+                node_memory_MemAvailable_bytes
+                / node_memory_MemTotal_bytes
+              )
+            ) > 0.85
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Node {{ $labels.instance }} memory > 85%"
+            description: "Node memory usage is {{ $value | humanizePercentage }}."
+
+        - alert: NodeDiskPressure
+          expr: |
+            (
+              node_filesystem_avail_bytes{mountpoint="/", fstype!="tmpfs"}
+              / node_filesystem_size_bytes{mountpoint="/", fstype!="tmpfs"}
+            ) < 0.15
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Node {{ $labels.instance }} disk < 15% free"
+            description: "Only {{ $value | humanizePercentage }} disk space remaining on /."
+
+        - alert: NodeDiskCritical
+          expr: |
+            (
+              node_filesystem_avail_bytes{mountpoint="/", fstype!="tmpfs"}
+              / node_filesystem_size_bytes{mountpoint="/", fstype!="tmpfs"}
+            ) < 0.05
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Node {{ $labels.instance }} disk < 5% — CRITICAL"
+            description: "Only {{ $value | humanizePercentage }} disk space remaining. Immediate action required."
+            runbook_url: "https://github.com/your-org/SRE-monitoring/blob/main/docs/runbooks/node-disk-full.md"

@@ -1,0 +1,8 @@
+# Patch: inject IRSA role ARN for Prometheus in dev
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-sa
+  namespace: monitoring
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111111111111:role/observability-dev-prometheus

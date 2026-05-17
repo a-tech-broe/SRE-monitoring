@@ -1,0 +1,26 @@
+# Catch-all ServiceMonitor — discovers any service with prometheus.io/scrape: "true"
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: auto-discovery
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      prometheus.io/scrape: "true"
+  endpoints:
+    - port: metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: true
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service

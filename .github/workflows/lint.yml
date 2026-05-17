@@ -1,0 +1,64 @@
+name: Lint & Validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  terraform-lint:
+    name: Terraform lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.5"
+      - name: terraform fmt check
+        run: terraform fmt -check -recursive terraform/
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.51.1
+      - run: tflint --recursive terraform/
+
+  yaml-lint:
+    name: YAML lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install yamllint
+      - run: yamllint -c .yamllint.yaml kubernetes/ alerts/
+
+  shell-lint:
+    name: Shell lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: "./scripts"
+
+  alert-validate:
+    name: Validate alert rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install promtool
+        run: |
+          PROM_VERSION=2.53.0
+          curl -Lo /tmp/prometheus.tar.gz \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.linux-amd64.tar.gz"
+          tar -xzf /tmp/prometheus.tar.gz -C /tmp
+          sudo mv /tmp/prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/local/bin/
+      - name: Validate rules
+        run: find alerts/ -name '*.yaml' | xargs -I{} promtool check rules {}
+
+  kustomize-build:
+    name: Kustomize build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        env: [dev, staging, prod]
+    steps:
+      - uses: actions/checkout@v4
+      - run: kubectl kustomize kubernetes/overlays/${{ matrix.env }} > /dev/null

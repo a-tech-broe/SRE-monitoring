@@ -1,0 +1,63 @@
+# Alertmanager configuration — base routing tree
+# Secrets (PagerDuty keys, Slack URLs) live in AWS Secrets Manager,
+# injected at deploy time via the deploy-monitoring workflow.
+global:
+  resolve_timeout: 5m
+  slack_api_url_file: /etc/alertmanager/secrets/slack-webhook-url
+
+route:
+  group_by: [alertname, cluster, namespace, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: default
+
+  routes:
+    - matchers:
+        - severity = critical
+      receiver: pagerduty-critical
+      continue: false
+
+    - matchers:
+        - severity = warning
+      receiver: slack-warning
+      continue: true
+
+    - matchers:
+        - alertname = Watchdog
+      receiver: blackhole
+      continue: false
+
+receivers:
+  - name: default
+    slack_configs:
+      - channel: "#alerts-default"
+        title: "{{ .GroupLabels.alertname }}"
+        text: "{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}"
+
+  - name: pagerduty-critical
+    pagerduty_configs:
+      - routing_key_file: /etc/alertmanager/secrets/pagerduty-routing-key
+        description: "{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}"
+        severity: "{{ .CommonLabels.severity }}"
+
+  - name: slack-warning
+    slack_configs:
+      - channel: "#alerts-warning"
+        send_resolved: true
+        title: "[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}"
+        text: |
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+
+  - name: blackhole
+
+inhibit_rules:
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal: [alertname, cluster, namespace]

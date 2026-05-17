@@ -1,0 +1,75 @@
+# SLO burn-rate alerts using multi-window, multi-burn-rate approach (Google SRE book)
+# Assumes a 99.9% availability SLO (error budget = 0.1% = 43.8 min/month)
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slo-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  groups:
+    - name: slo.burn-rate
+      rules:
+        # Fast burn: 14.4x budget consumed in 1h (pages immediately)
+        - alert: SLOErrorBudgetFastBurn
+          expr: |
+            (
+              job:slo_errors_per_request:ratio_rate1h > (14.4 * 0.001)
+            and
+              job:slo_errors_per_request:ratio_rate5m > (14.4 * 0.001)
+            )
+          for: 2m
+          labels:
+            severity: critical
+            slo: availability
+          annotations:
+            summary: "{{ $labels.job }} burning error budget at 14.4x rate"
+            description: >
+              {{ $labels.job }} error rate {{ $value | humanizePercentage }} exceeds
+              14.4x burn rate. At this rate the monthly budget will be exhausted in ~2 hours.
+            runbook_url: "https://github.com/your-org/SRE-monitoring/blob/main/docs/runbooks/slo-burn-rate.md"
+
+        # Slow burn: 6x budget consumed in 6h (warning, investigate soon)
+        - alert: SLOErrorBudgetSlowBurn
+          expr: |
+            (
+              job:slo_errors_per_request:ratio_rate6h > (6 * 0.001)
+            and
+              job:slo_errors_per_request:ratio_rate30m > (6 * 0.001)
+            )
+          for: 15m
+          labels:
+            severity: warning
+            slo: availability
+          annotations:
+            summary: "{{ $labels.job }} burning error budget at 6x rate"
+            description: >
+              {{ $labels.job }} error rate {{ $value | humanizePercentage }} exceeds
+              6x burn rate. At this rate the monthly budget will be exhausted in ~5 days.
+
+    - name: slo.recording-rules
+      rules:
+        - record: job:slo_errors_per_request:ratio_rate5m
+          expr: |
+            sum by(job) (rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum by(job) (rate(http_requests_total[5m]))
+
+        - record: job:slo_errors_per_request:ratio_rate30m
+          expr: |
+            sum by(job) (rate(http_requests_total{status=~"5.."}[30m]))
+            /
+            sum by(job) (rate(http_requests_total[30m]))
+
+        - record: job:slo_errors_per_request:ratio_rate1h
+          expr: |
+            sum by(job) (rate(http_requests_total{status=~"5.."}[1h]))
+            /
+            sum by(job) (rate(http_requests_total[1h]))
+
+        - record: job:slo_errors_per_request:ratio_rate6h
+          expr: |
+            sum by(job) (rate(http_requests_total{status=~"5.."}[6h]))
+            /
+            sum by(job) (rate(http_requests_total[6h]))

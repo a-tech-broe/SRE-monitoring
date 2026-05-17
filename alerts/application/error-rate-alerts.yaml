@@ -1,0 +1,60 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: error-rate-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  groups:
+    - name: application.error-rates
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            (
+              sum by(job, namespace) (rate(http_requests_total{status=~"5.."}[5m]))
+              /
+              sum by(job, namespace) (rate(http_requests_total[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.job }} error rate > 5%"
+            description: "HTTP 5xx error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+        - alert: HighLatencyP99
+          expr: |
+            histogram_quantile(0.99,
+              sum by(job, namespace, le) (
+                rate(http_request_duration_seconds_bucket[5m])
+              )
+            ) > 1.0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.job }} P99 latency > 1s"
+            description: "P99 request latency is {{ $value | humanizeDuration }}."
+
+        - alert: ServiceDown
+          expr: up{job!~"kube.*|node.*"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.job }} is down"
+            description: "Prometheus cannot scrape {{ $labels.instance }}."
+            runbook_url: "https://github.com/your-org/SRE-monitoring/blob/main/docs/runbooks/service-down.md"
+
+        - alert: LowRequestRate
+          expr: |
+            (
+              sum by(job, namespace) (rate(http_requests_total[10m]))
+            ) < 0.1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.job }} receiving very few requests"
+            description: "Request rate dropped to {{ $value | humanize }} req/s. Possible upstream traffic loss."

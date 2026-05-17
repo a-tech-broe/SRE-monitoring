@@ -1,0 +1,11 @@
+# AWS Load Balancer Controller — installed via Helm in the deploy workflow.
+# This manifest patches the ServiceAccount to inject the IRSA role ARN.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aws-load-balancer-controller
+  namespace: kube-system
+  annotations: {}  # eks.amazonaws.com/role-arn injected per environment via overlay patch
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+    app.kubernetes.io/managed-by: kustomize

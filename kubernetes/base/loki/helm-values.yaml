@@ -1,0 +1,61 @@
+# Loki distributed (scalable) Helm values — base
+loki:
+  auth_enabled: false
+
+  storage:
+    type: s3
+    s3:
+      region: us-east-1
+      bucketnames: ""  # injected per environment via overlay
+      s3forcepathstyle: false
+
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+
+  limits_config:
+    retention_period: 720h  # 30 days
+    ingestion_rate_mb: 16
+    ingestion_burst_size_mb: 32
+    max_streams_per_user: 10000
+    max_global_streams_per_user: 10000
+
+  compactor:
+    retention_enabled: true
+    delete_request_store: s3
+
+serviceAccount:
+  create: true
+  name: loki-sa
+  annotations: {}  # IRSA ARN injected per environment
+
+write:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+read:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+backend:
+  replicas: 2
+
+gateway:
+  enabled: true
+  replicas: 2

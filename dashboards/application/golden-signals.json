@@ -1,0 +1,109 @@
+{
+  "__inputs": [
+    { "name": "DS_PROMETHEUS", "label": "Prometheus", "type": "datasource", "pluginId": "prometheus" }
+  ],
+  "title": "Golden Signals — Application",
+  "uid": "app-golden-signals",
+  "tags": ["application", "slo", "golden-signals"],
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(http_requests_total, namespace)",
+        "multi": true
+      },
+      {
+        "name": "job",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(http_requests_total{namespace=~'$namespace'}, job)",
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Traffic — Requests/sec",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by(job) (rate(http_requests_total{namespace=~'$namespace', job=~'$job'}[5m]))",
+          "legendFormat": "{{ job }}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "title": "Errors — 5xx Rate",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by(job) (rate(http_requests_total{namespace=~'$namespace',job=~'$job',status=~'5..'}[5m])) / sum by(job) (rate(http_requests_total{namespace=~'$namespace',job=~'$job'}[5m]))",
+          "legendFormat": "{{ job }} error rate"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "id": 3,
+      "title": "Latency — P50 / P95 / P99",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by(job,le) (rate(http_request_duration_seconds_bucket{namespace=~'$namespace',job=~'$job'}[5m])))",
+          "legendFormat": "{{ job }} p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by(job,le) (rate(http_request_duration_seconds_bucket{namespace=~'$namespace',job=~'$job'}[5m])))",
+          "legendFormat": "{{ job }} p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by(job,le) (rate(http_request_duration_seconds_bucket{namespace=~'$namespace',job=~'$job'}[5m])))",
+          "legendFormat": "{{ job }} p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "id": 4,
+      "title": "Saturation — CPU & Memory",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum by(job) (rate(container_cpu_usage_seconds_total{namespace=~'$namespace',container!='',container!='POD'}[5m])) / sum by(job) (kube_pod_container_resource_limits{namespace=~'$namespace',resource='cpu'})",
+          "legendFormat": "{{ job }} CPU"
+        },
+        {
+          "expr": "sum by(job) (container_memory_working_set_bytes{namespace=~'$namespace',container!='',container!='POD'}) / sum by(job) (kube_pod_container_resource_limits{namespace=~'$namespace',resource='memory'})",
+          "legendFormat": "{{ job }} Memory"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    }
+  ]
+}
