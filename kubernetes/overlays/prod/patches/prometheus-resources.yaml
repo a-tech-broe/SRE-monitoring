@@ -1,0 +1,16 @@
+# Prod: increase Prometheus resources and retention
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: kube-prometheus-prometheus
+  namespace: monitoring
+spec:
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      memory: 8Gi
+  retention: 4h
+  retentionSize: 40GB
+  replicas: 2

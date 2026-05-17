@@ -1,0 +1,20 @@
+# Global fallback — SRE team owns everything
+*                               @your-org/sre-team
+
+# Terraform infra changes require infra-lead sign-off
+/terraform/                     @your-org/sre-team @your-org/infra-leads
+
+# Production manifests require additional approval
+/kubernetes/overlays/prod/      @your-org/sre-team @your-org/infra-leads
+
+# Alert rules require SRE on-call lead review
+/alerts/                        @your-org/sre-oncall
+
+# Dashboard changes require SRE team review
+/dashboards/                    @your-org/sre-team
+
+# CI/CD pipeline changes require infra-lead approval
+/.github/workflows/             @your-org/infra-leads
+
+# Docs can be merged by any SRE
+/docs/                          @your-org/sre-team

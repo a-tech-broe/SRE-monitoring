@@ -1,0 +1,71 @@
+name: Deploy Monitoring Stack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kubernetes/**"
+      - "dashboards/**"
+      - "alerts/**"
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy (${{ matrix.env }})
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        env: [dev, staging, prod]
+
+    environment: ${{ matrix.env }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets[format('AWS_ROLE_{0}', upper(matrix.env))] }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ${{ vars[format('EKS_CLUSTER_{0}', upper(matrix.env))] }} \
+            --region ${{ vars.AWS_REGION }}
+
+      - name: Diff manifests
+        run: kubectl diff -k kubernetes/overlays/${{ matrix.env }} || true
+
+      - name: Apply manifests
+        run: kubectl apply -k kubernetes/overlays/${{ matrix.env }}
+
+      - name: Sync dashboards
+        run: ./scripts/sync-dashboards.sh ${{ matrix.env }}
+        env:
+          GRAFANA_URL: ${{ secrets[format('GRAFANA_URL_{0}', upper(matrix.env))] }}
+          GRAFANA_SA_TOKEN: ${{ secrets[format('GRAFANA_SA_TOKEN_{0}', upper(matrix.env))] }}
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/prometheus-operator -n monitoring --timeout=300s
+          kubectl rollout status statefulset/prometheus-kube-prometheus-prometheus -n monitoring --timeout=300s
+
+      - name: Smoke test
+        run: |
+          kubectl run smoke-test --rm -it --restart=Never \
+            --image=curlimages/curl:latest \
+            --command -- curl -sf http://prometheus-operated.monitoring:9090/-/healthy

@@ -1,0 +1,90 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+      confirm_prod:
+        description: "Type CONFIRM to apply prod"
+        required: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: "1.8.5"
+
+jobs:
+  apply-dev:
+    name: Apply dev
+    runs-on: ubuntu-latest
+    environment: dev
+    if: github.event_name == 'push' || inputs.environment == 'dev'
+    defaults:
+      run:
+        working-directory: terraform/environments/dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_DEV }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - run: terraform init -input=false
+      - run: terraform apply -auto-approve -input=false
+
+  apply-staging:
+    name: Apply staging
+    runs-on: ubuntu-latest
+    environment: staging
+    needs: apply-dev
+    if: github.event_name == 'push' || inputs.environment == 'staging'
+    defaults:
+      run:
+        working-directory: terraform/environments/staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_STAGING }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - run: terraform init -input=false
+      - run: terraform apply -auto-approve -input=false
+
+  apply-prod:
+    name: Apply prod
+    runs-on: ubuntu-latest
+    environment: prod
+    needs: apply-staging
+    if: >
+      (github.event_name == 'push' || inputs.environment == 'prod') &&
+      (github.event_name != 'workflow_dispatch' || inputs.confirm_prod == 'CONFIRM')
+    defaults:
+      run:
+        working-directory: terraform/environments/prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_PROD }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - run: terraform init -input=false
+      - run: terraform apply -auto-approve -input=false

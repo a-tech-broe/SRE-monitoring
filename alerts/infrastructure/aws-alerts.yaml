@@ -1,0 +1,55 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: aws-infrastructure-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  groups:
+    - name: aws.eks
+      rules:
+        - alert: EKSNodeGroupScalingFailed
+          expr: |
+            kube_node_status_condition{condition="Ready", status="false"} == 1
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "EKS node {{ $labels.node }} not healthy for 10m"
+            description: "Node may have failed to join. Check Auto Scaling Group activity."
+
+        - alert: AWSLoadBalancerTargetUnhealthy
+          expr: |
+            aws_applicationelb_unhealthy_host_count_average > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "ALB has unhealthy targets"
+            description: "{{ $value }} targets unhealthy on load balancer {{ $labels.load_balancer }}."
+
+    - name: aws.costs
+      rules:
+        - alert: PrometheusStorageLow
+          expr: |
+            (
+              kubelet_volume_stats_available_bytes{persistentvolumeclaim=~"prometheus.*"}
+              / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"prometheus.*"}
+            ) < 0.2
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Prometheus PVC {{ $labels.persistentvolumeclaim }} < 20% free"
+            description: "Only {{ $value | humanizePercentage }} storage remaining."
+
+        - alert: LokiS3HighUsage
+          expr: |
+            aws_s3_bucket_size_bytes > 500e9
+          for: 0m
+          labels:
+            severity: info
+          annotations:
+            summary: "Loki S3 bucket exceeds 500GB"
+            description: "Consider reviewing log retention or compaction settings."
