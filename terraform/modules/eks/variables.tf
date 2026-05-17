@@ -45,12 +45,17 @@ variable "cluster_addons" {
   description = "EKS add-on versions; empty string means latest"
   type        = map(string)
   default = {
-    coredns                = ""
-    kube-proxy             = ""
-    vpc-cni                = ""
-    aws-ebs-csi-driver     = ""
-    aws-efs-csi-driver     = ""
+    coredns            = ""
+    kube-proxy         = ""
+    vpc-cni            = ""
+    aws-ebs-csi-driver = ""
   }
+}
+
+variable "cluster_addon_role_arns" {
+  description = "Map of addon name to IRSA role ARN for addons that need AWS API access (e.g. ebs-csi, efs-csi)"
+  type        = map(string)
+  default     = {}
 }
 
 variable "endpoint_private_access" {

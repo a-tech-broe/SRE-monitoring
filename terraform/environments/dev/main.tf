@@ -58,7 +58,8 @@ module "eks" {
   }
 
   endpoint_private_access = true
-  endpoint_public_access  = false
+  endpoint_public_access  = true
+  public_access_cidrs     = ["0.0.0.0/0"] # dev testing only — revert before staging/prod
 
   tags = local.common_tags
 }
