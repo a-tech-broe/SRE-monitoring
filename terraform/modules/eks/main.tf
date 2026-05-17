@@ -49,6 +49,10 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
     "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
     "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
     "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+    # EBS CSI driver needs EBS permissions on the node role to avoid a
+    # circular dependency between the EKS module (OIDC provider) and
+    # the IAM module (IRSA roles).
+    "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy",
   ])
   role       = aws_iam_role.node.name
   policy_arn = each.value
@@ -168,9 +172,10 @@ resource "aws_eks_node_group" "this" {
 resource "aws_eks_addon" "this" {
   for_each = { for k, v in var.cluster_addons : k => v if v != null }
 
-  cluster_name             = aws_eks_cluster.this.name
-  addon_name               = each.key
-  addon_version            = each.value == "" ? null : each.value
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = each.key
+  addon_version               = each.value == "" ? null : each.value
+  service_account_role_arn    = lookup(var.cluster_addon_role_arns, each.key, null)
   resolve_conflicts_on_update = "OVERWRITE"
 
   tags = local.tags
