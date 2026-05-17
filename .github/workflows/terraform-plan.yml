@@ -13,6 +13,8 @@ permissions:
 
 env:
   TF_VERSION: "1.8.5"
+  # Sensitive values are never stored in tfvars — injected here from GitHub Secrets
+  # Required secrets per environment: AWS_ACCOUNT_ID_DEV, AWS_ACCOUNT_ID_STAGING, AWS_ACCOUNT_ID_PROD
 
 jobs:
   plan:
@@ -22,6 +24,9 @@ jobs:
       fail-fast: false
       matrix:
         env: [dev, staging, prod]
+
+    env:
+      TF_VAR_aws_account_id: ${{ secrets[format('AWS_ACCOUNT_ID_{0}', upper(matrix.env))] }}
 
     defaults:
       run:
