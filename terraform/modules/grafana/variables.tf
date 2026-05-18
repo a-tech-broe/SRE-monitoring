@@ -32,8 +32,38 @@ variable "amp_workspace_id" {
   type        = string
 }
 
+variable "admin_users" {
+  description = "Users to create in IAM Identity Center and assign Admin role in Grafana"
+  type = list(object({
+    username     = string
+    display_name = string
+    given_name   = string
+    family_name  = string
+    email        = string
+  }))
+  default = []
+}
+
+variable "editor_users" {
+  description = "Users to create in IAM Identity Center and assign Editor role in Grafana"
+  type = list(object({
+    username     = string
+    display_name = string
+    given_name   = string
+    family_name  = string
+    email        = string
+  }))
+  default = []
+}
+
+variable "admin_group_ids" {
+  description = "Existing IAM Identity Center group IDs to assign the Admin role in Grafana"
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags applied to all resources"
   type        = map(string)
-  default     = {}
+  default     = {dev-environment = "true"}
 }

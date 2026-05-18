@@ -7,10 +7,11 @@ locals {
 
 data "aws_iam_policy_document" "irsa_assume" {
   for_each = {
-    prometheus     = "monitoring:prometheus-sa"
-    grafana        = "monitoring:grafana-sa"
-    loki           = "monitoring:loki-sa"
-    alb_controller = "kube-system:aws-load-balancer-controller"
+    prometheus     = "system:serviceaccount:monitoring:prometheus-sa"
+    grafana        = "system:serviceaccount:monitoring:grafana-sa"
+    loki           = "system:serviceaccount:monitoring:loki-sa"
+    alb_controller = "system:serviceaccount:kube-system:aws-load-balancer-controller"
+    ebs_csi        = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
   }
 
   statement {
@@ -148,3 +149,15 @@ resource "aws_iam_role_policy_attachment" "alb_controller" {
   policy_arn = aws_iam_policy.alb_controller.arn
 }
 
+# ── EBS CSI Driver IRSA ───────────────────────────────────────────────────────
+
+resource "aws_iam_role" "ebs_csi" {
+  name               = "${var.cluster_name}-ebs-csi"
+  assume_role_policy = data.aws_iam_policy_document.irsa_assume["ebs_csi"].json
+  tags               = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi" {
+  role       = aws_iam_role.ebs_csi.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
