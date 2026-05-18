@@ -20,7 +20,6 @@ GitHub repo → Settings → Secrets and variables → Actions → New repositor
 | Secret name | Description |
 |-------------|-------------|
 | `AWS_ROLE_DEV` | IAM role ARN for OIDC auth in dev account |
-| `AWS_ROLE_STAGING` | IAM role ARN for OIDC auth in staging account |
 | `AWS_ROLE_PROD` | IAM role ARN for OIDC auth in prod account |
 
 These roles must have a trust policy allowing `token.actions.githubusercontent.com` to assume them. Example:
@@ -44,7 +43,6 @@ These roles must have a trust policy allowing `token.actions.githubusercontent.c
 | Secret name | Description |
 |-------------|-------------|
 | `AWS_ACCOUNT_ID_DEV` | 12-digit AWS account ID for dev |
-| `AWS_ACCOUNT_ID_STAGING` | 12-digit AWS account ID for staging |
 | `AWS_ACCOUNT_ID_PROD` | 12-digit AWS account ID for prod |
 
 These are passed to Terraform as `TF_VAR_aws_account_id` — they never appear in committed files.
@@ -54,10 +52,8 @@ These are passed to Terraform as `TF_VAR_aws_account_id` — they never appear i
 | Secret name | Description |
 |-------------|-------------|
 | `GRAFANA_URL_DEV` | Amazon Managed Grafana workspace URL for dev |
-| `GRAFANA_URL_STAGING` | Amazon Managed Grafana workspace URL for staging |
 | `GRAFANA_URL_PROD` | Amazon Managed Grafana workspace URL for prod |
 | `GRAFANA_SA_TOKEN_DEV` | Grafana service account token for dev (Admin role) |
-| `GRAFANA_SA_TOKEN_STAGING` | Grafana service account token for staging |
 | `GRAFANA_SA_TOKEN_PROD` | Grafana service account token for prod |
 
 ### EKS Cluster Names (non-sensitive, but kept as secrets for flexibility)
@@ -65,7 +61,6 @@ These are passed to Terraform as `TF_VAR_aws_account_id` — they never appear i
 | Secret name | Description |
 |-------------|-------------|
 | `EKS_CLUSTER_DEV` | EKS cluster name in dev (e.g. `observability-dev`) |
-| `EKS_CLUSTER_STAGING` | EKS cluster name in staging |
 | `EKS_CLUSTER_PROD` | EKS cluster name in prod |
 
 ---

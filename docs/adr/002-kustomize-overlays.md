@@ -5,7 +5,7 @@
 
 ## Context
 
-We deploy the same monitoring stack to three environments (dev, staging, prod)
+We deploy the same monitoring stack to two environments (dev and prod)
 with different resource sizes, IRSA role ARNs, and replica counts. We need a
 way to manage these differences without duplicating manifests.
 
