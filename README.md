@@ -325,6 +325,48 @@ Use `logcli` or query `http://localhost:3100/loki/api/v1/query` directly.
 
 ---
 
+## Cost Estimate
+
+Pricing based on us-east-1 (May 2026). Actual costs vary with traffic and metric cardinality.
+
+### Dev — ~$420/month
+
+| Resource | Details | Est. Cost |
+|----------|---------|-----------|
+| EKS control plane | 1 cluster | $72 |
+| EC2 nodes | m6i.xlarge × 2 ON_DEMAND | $276 |
+| NAT Gateway | 1 (single AZ) | $40 |
+| Amazon Managed Prometheus | ~1.5B samples/month | $10 |
+| Amazon Managed Grafana | 1 admin user | $9 |
+| S3 (Loki chunks, 30-day retention) | ~30 GB | $3 |
+| EBS (Prometheus + Alertmanager PVCs) | 25 GB gp3 | $2 |
+| KMS keys | 3 keys | $3 |
+| CloudWatch Logs (VPC flow logs) | ~2 GB/month | $3 |
+
+### Prod — ~$2,000/month
+
+| Resource | Details | Est. Cost |
+|----------|---------|-----------|
+| EKS control plane | 1 cluster | $72 |
+| EC2 nodes | m6i.4xlarge × 3 ON_DEMAND | $1,659 |
+| Spot pool | m6i.2xlarge × 2 (~70% discount) | $110 |
+| NAT Gateways | 3 (multi-AZ) | $115 |
+| Amazon Managed Prometheus | ~5B samples/month | $20 |
+| Amazon Managed Grafana | 1 admin user | $9 |
+| S3 (Loki chunks, 30-day retention) | ~100 GB | $8 |
+| EBS PVCs | 25 GB gp3 | $2 |
+| KMS + CloudWatch | 3 keys + flow logs | $8 |
+
+**Combined total: ~$2,400/month**
+
+EC2 nodes are 90%+ of the bill. Top ways to reduce costs:
+
+- **Switch to Graviton** (`m8g` family) — same performance, ~20% cheaper
+- **More Spot in prod** — monitoring tolerates interruption with proper PDBs
+- **Stop dev nights/weekends** — scale node group to 0 on a cron, saves ~$190/month
+
+---
+
 ## Security
 
 - **No credentials in the repo** — AWS keys and account IDs injected at runtime from GitHub Secrets
