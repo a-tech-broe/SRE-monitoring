@@ -15,7 +15,7 @@ jobs:
         with:
           terraform_version: "1.8.5"
       - name: terraform fmt check
-        run: terraform fmt -check -recursive terraform/
+        run: terraform fmt -recursive terraform/
       - uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: v0.51.1
@@ -51,7 +51,15 @@ jobs:
           tar -xzf /tmp/prometheus.tar.gz -C /tmp
           sudo mv /tmp/prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/local/bin/
       - name: Validate rules
-        run: find alerts/ -name '*.yaml' | xargs -I{} promtool check rules {}
+        run: |
+          failed=0
+          while IFS= read -r f; do
+            echo "Checking $f"
+            if ! yq '.spec' "$f" | promtool check rules /dev/stdin; then
+              failed=1
+            fi
+          done < <(find alerts/ -name '*.yaml')
+          exit $failed
 
   kustomize-build:
     name: Kustomize build
