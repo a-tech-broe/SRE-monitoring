@@ -23,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        env: [dev, staging, prod]
+        env: [dev, prod]
 
     env:
       TF_VAR_aws_account_id: ${{ secrets[format('AWS_ACCOUNT_ID_{0}', upper(matrix.env))] }}

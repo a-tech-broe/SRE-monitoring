@@ -12,7 +12,7 @@ on:
         description: Target environment
         required: true
         type: choice
-        options: [dev, staging, prod]
+        options: [dev, prod]
       confirm_prod:
         description: "Type CONFIRM to apply prod"
         required: false
@@ -47,34 +47,11 @@ jobs:
       - run: terraform init -input=false
       - run: terraform apply -auto-approve -input=false
 
-  apply-staging:
-    name: Apply staging
-    runs-on: ubuntu-latest
-    environment: staging
-    needs: apply-dev
-    if: github.event_name == 'push' || inputs.environment == 'staging'
-    env:
-      TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID_STAGING }}
-    defaults:
-      run:
-        working-directory: terraform/environments/staging
-    steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_STAGING }}
-          aws-region: ${{ secrets.AWS_REGION }}
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-      - run: terraform init -input=false
-      - run: terraform apply -auto-approve -input=false
-
   apply-prod:
     name: Apply prod
     runs-on: ubuntu-latest
     environment: prod
-    needs: apply-staging
+    needs: apply-dev
     if: >
       (github.event_name == 'push' || inputs.environment == 'prod') &&
       (github.event_name != 'workflow_dispatch' || inputs.confirm_prod == 'CONFIRM')
