@@ -129,7 +129,7 @@ SRE-monitoring/
 | What | Where it lives |
 |------|---------------|
 | AWS account IDs | GitHub Secret → injected as `TF_VAR_aws_account_id` |
-| AWS auth (CI) | GitHub OIDC → no static keys |
+| AWS auth (CI) | GitHub Secrets (`AWS_ACCESS_KEY_ID_*`, `AWS_SECRET_ACCESS_KEY_*`) |
 | Grafana tokens | GitHub Secret (`GRAFANA_SA_TOKEN_*`) |
 | PagerDuty / Slack keys | AWS Secrets Manager (mounted into Alertmanager at runtime) |
 | Terraform state | S3 backend (encrypted, per environment) |
@@ -148,7 +148,7 @@ Before anything runs in CI, add the required secrets to the repo:
 GitHub → Settings → Secrets and variables → Actions
 ```
 
-Required secrets: `AWS_ROLE_DEV`, `AWS_ACCOUNT_ID_DEV`, `GRAFANA_URL_DEV`, `GRAFANA_SA_TOKEN_DEV`, `EKS_CLUSTER_DEV` (and equivalents for prod).
+Required secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ACCOUNT_ID`, `AWS_REGION`, `GRAFANA_URL_DEV`, `GRAFANA_SA_TOKEN_DEV`, `GRAFANA_URL_PROD`, `GRAFANA_SA_TOKEN_PROD`.
 Full list: [docs/github-secrets.md](docs/github-secrets.md)
 
 ### 2. Bootstrap your workstation
