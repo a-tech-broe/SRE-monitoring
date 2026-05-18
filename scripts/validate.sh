@@ -22,7 +22,7 @@ check() {
 }
 
 echo "=== Terraform ==="
-for env in dev staging prod; do
+for env in dev prod; do
   check "fmt:$env"      terraform fmt -check -recursive "terraform/environments/$env"
   check "validate:$env" bash -c "cd terraform/environments/$env && terraform validate"
 done
@@ -40,7 +40,7 @@ check "yamllint:alerts"     yamllint -c .yamllint.yaml alerts/
 
 echo ""
 echo "=== Kustomize build ==="
-for env in dev staging prod; do
+for env in dev prod; do
   check "kustomize:$env" kubectl kustomize "kubernetes/overlays/$env"
 done
 

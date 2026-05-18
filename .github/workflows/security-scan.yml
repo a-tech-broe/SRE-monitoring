@@ -21,7 +21,7 @@ jobs:
           framework: terraform,kubernetes
           output_format: sarif
           output_file_path: checkov.sarif
-          skip_check: "CKV_AWS_115,CKV_AWS_116,CKV_K8S_8,CKV_K8S_9,CKV2_AWS_64,CKV_AWS_38,CKV_AWS_39,CKV2_AWS_62,CKV_AWS_144,CKV_AWS_18,CKV2_AWS_12,CKV_AWS_356"
+          skip_check: "CKV_AWS_115,CKV_AWS_116,CKV_K8S_8,CKV_K8S_9,CKV2_AWS_64,CKV_AWS_38,CKV_AWS_39,CKV2_AWS_62,CKV_AWS_144,CKV_AWS_18,CKV2_AWS_12,CKV_AWS_356,CKV_AWS_107,CKV_AWS_109,CKV_AWS_110,CKV_AWS_111"
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
         if: always()

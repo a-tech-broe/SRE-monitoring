@@ -59,7 +59,7 @@ module "eks" {
 
   endpoint_private_access = true
   endpoint_public_access  = true
-  public_access_cidrs     = ["0.0.0.0/0"] # dev testing only — revert before staging/prod
+  public_access_cidrs     = ["0.0.0.0/0"] # dev testing only — revert before prod
 
   # aws-ebs-csi-driver is managed as a standalone resource below so its
   # IRSA role ARN can be wired in without creating a module cycle.

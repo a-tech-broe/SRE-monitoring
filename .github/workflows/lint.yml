@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        env: [dev, staging, prod]
+        env: [dev, prod]
     steps:
       - uses: actions/checkout@v4
       - name: Install kustomize

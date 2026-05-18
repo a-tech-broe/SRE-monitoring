@@ -62,7 +62,6 @@ SRE-monitoring/
 │   │   └── iam/              IRSA roles for Prometheus, Grafana, Loki, ALB
 │   └── environments/
 │       ├── dev/
-│       ├── staging/
 │       └── prod/
 │
 ├── kubernetes/
@@ -73,7 +72,6 @@ SRE-monitoring/
 │   │   └── ingress/          ALB Controller ServiceAccount
 │   └── overlays/
 │       ├── dev/              IRSA patches for dev account
-│       ├── staging/          IRSA patches for staging account
 │       └── prod/             IRSA patches + resource overrides for prod
 │
 ├── dashboards/
@@ -99,8 +97,8 @@ SRE-monitoring/
 │   └── adr/
 │
 ├── .github/workflows/
-│   ├── terraform-plan.yml    PR: plan all 3 envs, post output as comment
-│   ├── terraform-apply.yml   Push to main: apply dev → staging → prod
+│   ├── terraform-plan.yml    PR: plan dev + prod, post output as comment
+│   ├── terraform-apply.yml   Push to main: apply dev → prod
 │   ├── deploy-monitoring.yml Push to main: kubectl apply + dashboard sync
 │   ├── lint.yml              fmt, tflint, yamllint, shellcheck, promtool
 │   └── security-scan.yml     Checkov, Gitleaks, Trivy → GitHub Security tab
@@ -118,10 +116,9 @@ SRE-monitoring/
 | Env | EKS Node Type | HA | Terraform State Bucket |
 |-----|---------------|----|------------------------|
 | dev | m6i.xlarge ×2 | Single NAT | `bathbucket31` |
-| staging | m6i.2xlarge ×3 | Multi-AZ | *(configure in backend.tf)* |
 | prod | m6i.4xlarge ×3 + Spot pool | Multi-AZ | *(configure in backend.tf)* |
 
-> AWS account IDs are **not** stored in this repo. They are injected at runtime from GitHub Secrets (`AWS_ACCOUNT_ID_DEV`, `AWS_ACCOUNT_ID_STAGING`, `AWS_ACCOUNT_ID_PROD`).
+> AWS account IDs are **not** stored in this repo. They are injected at runtime from GitHub Secrets (`AWS_ACCOUNT_ID_DEV`, `AWS_ACCOUNT_ID_PROD`).
 
 ---
 
@@ -151,7 +148,7 @@ Before anything runs in CI, add the required secrets to the repo:
 GitHub → Settings → Secrets and variables → Actions
 ```
 
-Required secrets: `AWS_ROLE_DEV`, `AWS_ACCOUNT_ID_DEV`, `GRAFANA_URL_DEV`, `GRAFANA_SA_TOKEN_DEV`, `EKS_CLUSTER_DEV` (and equivalents for staging/prod).
+Required secrets: `AWS_ROLE_DEV`, `AWS_ACCOUNT_ID_DEV`, `GRAFANA_URL_DEV`, `GRAFANA_SA_TOKEN_DEV`, `EKS_CLUSTER_DEV` (and equivalents for prod).
 Full list: [docs/github-secrets.md](docs/github-secrets.md)
 
 ### 2. Bootstrap your workstation
@@ -248,7 +245,7 @@ Grafana runs on Amazon Managed Grafana, authenticated via AWS IAM Identity Cente
 ## Security
 
 - **No credentials in the repo** — AWS auth uses GitHub OIDC; account IDs injected from GitHub Secrets
-- EKS API endpoint is **private-only** in staging and prod; dev has a temporary public endpoint for testing
+- EKS API endpoint is **private-only** in prod; dev has a temporary public endpoint for testing
 - All pod identities use **IRSA** (trust policies scoped to `system:serviceaccount:<ns>:<sa>`) — no static IAM keys anywhere in the stack
 - S3 buckets: private, SSE-S3 encrypted, public access blocked
 - EKS secrets encrypted with a per-cluster **KMS** key

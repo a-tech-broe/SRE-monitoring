@@ -58,7 +58,6 @@ to add that label to their `Service` manifest — no changes to this repo needed
 | Env | Account | EKS Instance | Single NAT |
 |-----|---------|-------------|------------|
 | dev | 111111111111 | m6i.xlarge ×2 | yes |
-| staging | 222222222222 | m6i.2xlarge ×3 | no |
 | prod | 333333333333 | m6i.4xlarge ×3 + spot | no |
 
 ## Security

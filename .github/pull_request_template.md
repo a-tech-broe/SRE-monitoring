@@ -12,7 +12,6 @@
 
 ## Environments affected
 - [ ] dev
-- [ ] staging
 - [ ] prod
 
 ## Checklist
