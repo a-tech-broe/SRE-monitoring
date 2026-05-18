@@ -81,8 +81,9 @@ module "amp" {
 }
 
 resource "aws_s3_bucket" "loki" {
-  bucket = "${local.name}-loki-chunks-${var.aws_account_id}"
-  tags   = local.common_tags
+  bucket        = "${local.name}-loki-chunks-${var.aws_account_id}"
+  force_destroy = true
+  tags          = local.common_tags
 }
 
 resource "aws_s3_bucket_versioning" "loki" {

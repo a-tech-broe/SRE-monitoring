@@ -97,3 +97,37 @@ validate-alerts: ## Validate PrometheusRule YAML with promtool
 .PHONY: bootstrap
 bootstrap: ## Bootstrap a fresh workstation / CI agent
 	./scripts/bootstrap.sh
+
+# ── Cleanup / Teardown ─────────────────────────────────────────────────────────
+
+.PHONY: cleanup
+cleanup: ## Teardown all phases for ENV (default: dev) — prompts for confirmation
+	./scripts/cleanup.sh --env $(ENV)
+
+.PHONY: cleanup-dev
+cleanup-dev: ## Teardown dev environment (all phases)
+	./scripts/cleanup.sh --env dev
+
+.PHONY: cleanup-prod
+cleanup-prod: ## Teardown prod environment (all phases)
+	./scripts/cleanup.sh --env prod
+
+.PHONY: cleanup-all
+cleanup-all: ## Teardown ALL environments + bootstrap resources
+	./scripts/cleanup.sh --env all
+
+.PHONY: cleanup-k8s
+cleanup-k8s: ## Teardown Kubernetes workloads only for ENV (no Terraform)
+	./scripts/cleanup.sh --env $(ENV) --phase k8s
+
+.PHONY: cleanup-tf
+cleanup-tf: ## Run terraform destroy only for ENV (K8s must be torn down first)
+	./scripts/cleanup.sh --env $(ENV) --phase terraform
+
+.PHONY: cleanup-bootstrap
+cleanup-bootstrap: ## Destroy bootstrap OIDC + CI IAM roles (cuts GHA AWS access)
+	./scripts/cleanup.sh --env dev --phase bootstrap
+
+.PHONY: cleanup-dry-run
+cleanup-dry-run: ## Preview teardown for ENV without making any changes
+	./scripts/cleanup.sh --env $(ENV) --dry-run
