@@ -44,10 +44,6 @@ destroy: ## Destroy ENV infra (requires confirmation)
 plan-dev: ## Plan dev environment
 	$(MAKE) plan ENV=dev
 
-.PHONY: plan-staging
-plan-staging: ## Plan staging environment
-	$(MAKE) plan ENV=staging
-
 .PHONY: plan-prod
 plan-prod: ## Plan prod environment
 	$(MAKE) plan ENV=prod
@@ -55,10 +51,6 @@ plan-prod: ## Plan prod environment
 .PHONY: apply-dev
 apply-dev: ## Apply dev environment
 	$(MAKE) apply ENV=dev
-
-.PHONY: apply-staging
-apply-staging: ## Apply staging environment
-	$(MAKE) apply ENV=staging
 
 .PHONY: apply-prod
 apply-prod: ## Apply prod environment (use CI/CD in practice)
@@ -77,10 +69,6 @@ kube-apply: ## Apply kustomize manifests for ENV
 .PHONY: deploy-dev
 deploy-dev: ## Deploy monitoring stack to dev
 	$(MAKE) kube-apply ENV=dev
-
-.PHONY: deploy-staging
-deploy-staging: ## Deploy monitoring stack to staging
-	$(MAKE) kube-apply ENV=staging
 
 .PHONY: deploy-prod
 deploy-prod: ## Deploy monitoring stack to prod (use CI/CD in practice)
