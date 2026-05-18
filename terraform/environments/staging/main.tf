@@ -80,7 +80,7 @@ resource "aws_s3_bucket_versioning" "loki" {
 resource "aws_s3_bucket_server_side_encryption_configuration" "loki" {
   bucket = aws_s3_bucket.loki.id
   rule {
-    apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
+    apply_server_side_encryption_by_default { sse_algorithm = "aws:kms" }
   }
 }
 
@@ -92,14 +92,23 @@ resource "aws_s3_bucket_public_access_block" "loki" {
   restrict_public_buckets = true
 }
 
+resource "aws_s3_bucket_lifecycle_configuration" "loki" {
+  bucket = aws_s3_bucket.loki.id
+
+  rule {
+    id     = "expire-old-chunks"
+    status = "Enabled"
+    abort_incomplete_multipart_upload { days_after_initiation = 7 }
+    expiration { days = 60 }
+  }
+}
+
 module "iam" {
   source = "../../modules/iam"
 
   cluster_name      = module.eks.cluster_name
   oidc_provider_arn = module.eks.oidc_provider_arn
   oidc_issuer_url   = module.eks.oidc_issuer_url
-  aws_account_id    = var.aws_account_id
-  aws_region        = var.aws_region
   amp_workspace_arn = module.amp.workspace_arn
   loki_bucket_arn   = aws_s3_bucket.loki.arn
 

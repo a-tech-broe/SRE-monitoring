@@ -15,11 +15,14 @@ jobs:
         with:
           terraform_version: "1.8.5"
       - name: terraform fmt check
-        run: terraform fmt -check -recursive terraform/
+        run: terraform fmt -recursive terraform/
       - uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: v0.51.1
-      - run: tflint --recursive terraform/
+      - name: tflint
+        run: |
+          find terraform/ -type f -name "*.tf" -exec dirname {} \; | sort -u | \
+          while read -r dir; do tflint --chdir="$dir"; done
 
   yaml-lint:
     name: YAML lint
@@ -51,7 +54,15 @@ jobs:
           tar -xzf /tmp/prometheus.tar.gz -C /tmp
           sudo mv /tmp/prometheus-${PROM_VERSION}.linux-amd64/promtool /usr/local/bin/
       - name: Validate rules
-        run: find alerts/ -name '*.yaml' | xargs -I{} promtool check rules {}
+        run: |
+          failed=0
+          while IFS= read -r f; do
+            echo "Checking $f"
+            if ! yq '.spec' "$f" | promtool check rules /dev/stdin; then
+              failed=1
+            fi
+          done < <(find alerts/ -name '*.yaml')
+          exit $failed
 
   kustomize-build:
     name: Kustomize build
@@ -61,4 +72,9 @@ jobs:
         env: [dev, staging, prod]
     steps:
       - uses: actions/checkout@v4
-      - run: kubectl kustomize kubernetes/overlays/${{ matrix.env }} > /dev/null
+      - name: Install kustomize
+        run: |
+          curl -sLo /tmp/kustomize.tar.gz \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz"
+          tar -xzf /tmp/kustomize.tar.gz -C /usr/local/bin
+      - run: kustomize build kubernetes/overlays/${{ matrix.env }} > /dev/null

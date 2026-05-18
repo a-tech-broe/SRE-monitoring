@@ -106,9 +106,17 @@ resource "aws_flow_log" "this" {
   tags            = merge(var.tags, { Name = "${var.name}-flow-logs" })
 }
 
+resource "aws_kms_key" "flow_log" {
+  description             = "CloudWatch flow log encryption — ${var.name}"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+  tags                    = var.tags
+}
+
 resource "aws_cloudwatch_log_group" "flow_log" {
   name              = "/aws/vpc/${var.name}/flow-logs"
-  retention_in_days = 30
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.flow_log.arn
   tags              = var.tags
 }
 

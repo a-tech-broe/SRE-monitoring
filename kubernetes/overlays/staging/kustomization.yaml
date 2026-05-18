@@ -7,8 +7,9 @@ resources:
   - ../../base/alertmanager
   - ../../base/ingress
 
-commonLabels:
-  environment: staging
+labels:
+  - pairs:
+      environment: staging
 
 patches:
   - path: patches/prometheus-irsa.yaml

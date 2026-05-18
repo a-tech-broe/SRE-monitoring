@@ -7,8 +7,9 @@ resources:
   - ../../base/alertmanager
   - ../../base/ingress
 
-commonLabels:
-  environment: prod
+labels:
+  - pairs:
+      environment: prod
 
 patches:
   - path: patches/prometheus-irsa.yaml
