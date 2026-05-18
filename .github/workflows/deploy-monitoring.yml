@@ -1,13 +1,16 @@
 name: Deploy Monitoring Stack
 
 on:
+  workflow_run:
+    workflows: ["Terraform Apply"]
+    types: [completed]
+    branches: [main]
   push:
     branches: [main]
     paths:
       - "kubernetes/**"
       - "dashboards/**"
       - "alerts/**"
-
   workflow_dispatch:
     inputs:
       environment:
@@ -20,19 +23,17 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Deploy (${{ matrix.env }})
+  deploy-dev:
+    name: Deploy dev
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 1
-      matrix:
-        env: [dev, prod]
-
-    environment: ${{ matrix.env }}
+    environment: dev
+    if: |
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'dev') ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -41,28 +42,148 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Fetch deployment values
+        id: vals
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          AMP_ENDPOINT=$(aws amp list-workspaces --region ${{ secrets.AWS_REGION }} \
+            --query 'workspaces[?alias==`observability-dev-metrics`].prometheusEndpoint' \
+            --output text)
+          echo "remote_write_url=${AMP_ENDPOINT}api/v1/remote_write"     >> "$GITHUB_OUTPUT"
+          echo "loki_bucket=observability-dev-loki-chunks-${ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+          echo "prom_role=arn:aws:iam::${ACCOUNT_ID}:role/observability-dev-prometheus" >> "$GITHUB_OUTPUT"
+          echo "loki_role=arn:aws:iam::${ACCOUNT_ID}:role/observability-dev-loki"       >> "$GITHUB_OUTPUT"
+
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --name ${{ vars[format('EKS_CLUSTER_{0}', upper(matrix.env))] }} \
+            --name observability-dev \
             --region ${{ secrets.AWS_REGION }}
 
-      - name: Diff manifests
-        run: kubectl diff -k kubernetes/overlays/${{ matrix.env }} || true
+      - name: Add Helm repos
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo update
+
+      - name: Deploy kube-prometheus-stack
+        run: |
+          helm upgrade --install kube-prometheus \
+            prometheus-community/kube-prometheus-stack \
+            --namespace monitoring --create-namespace \
+            --wait --timeout 10m \
+            -f kubernetes/base/prometheus/helm-values.yaml \
+            --set "prometheus.serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${{ steps.vals.outputs.prom_role }}" \
+            --set "prometheus.prometheusSpec.remoteWrite[0].url=${{ steps.vals.outputs.remote_write_url }}"
+
+      - name: Deploy Loki
+        run: |
+          helm upgrade --install loki \
+            grafana/loki-distributed \
+            --namespace logging --create-namespace \
+            --wait --timeout 10m \
+            -f kubernetes/base/loki/helm-values.yaml \
+            --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${{ steps.vals.outputs.loki_role }}" \
+            --set "loki.storage.s3.bucketnames=${{ steps.vals.outputs.loki_bucket }}"
 
       - name: Apply manifests
-        run: kubectl apply -k kubernetes/overlays/${{ matrix.env }}
+        run: kubectl apply -k kubernetes/overlays/dev
 
       - name: Sync dashboards
-        run: ./scripts/sync-dashboards.sh ${{ matrix.env }}
+        run: ./scripts/sync-dashboards.sh dev
         env:
-          GRAFANA_URL: ${{ secrets[format('GRAFANA_URL_{0}', upper(matrix.env))] }}
-          GRAFANA_SA_TOKEN: ${{ secrets[format('GRAFANA_SA_TOKEN_{0}', upper(matrix.env))] }}
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL_DEV }}
+          GRAFANA_SA_TOKEN: ${{ secrets.GRAFANA_SA_TOKEN_DEV }}
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/prometheus-operator -n monitoring --timeout=300s
-          kubectl rollout status statefulset/prometheus-kube-prometheus-prometheus -n monitoring --timeout=300s
+          kubectl rollout status statefulset/prometheus-kube-prometheus-prometheus \
+            -n monitoring --timeout=300s
+
+      - name: Smoke test
+        run: |
+          kubectl run smoke-test --rm -it --restart=Never \
+            --image=curlimages/curl:latest \
+            --command -- curl -sf http://prometheus-operated.monitoring:9090/-/healthy
+
+  deploy-prod:
+    name: Deploy prod
+    runs-on: ubuntu-latest
+    environment: prod
+    needs: deploy-dev
+    if: |
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'prod') ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Fetch deployment values
+        id: vals
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          AMP_ENDPOINT=$(aws amp list-workspaces --region ${{ secrets.AWS_REGION }} \
+            --query 'workspaces[?alias==`observability-prod-metrics`].prometheusEndpoint' \
+            --output text)
+          echo "remote_write_url=${AMP_ENDPOINT}api/v1/remote_write"      >> "$GITHUB_OUTPUT"
+          echo "loki_bucket=observability-prod-loki-chunks-${ACCOUNT_ID}" >> "$GITHUB_OUTPUT"
+          echo "prom_role=arn:aws:iam::${ACCOUNT_ID}:role/observability-prod-prometheus" >> "$GITHUB_OUTPUT"
+          echo "loki_role=arn:aws:iam::${ACCOUNT_ID}:role/observability-prod-loki"       >> "$GITHUB_OUTPUT"
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name observability-prod \
+            --region ${{ secrets.AWS_REGION }}
+
+      - name: Add Helm repos
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo update
+
+      - name: Deploy kube-prometheus-stack
+        run: |
+          helm upgrade --install kube-prometheus \
+            prometheus-community/kube-prometheus-stack \
+            --namespace monitoring --create-namespace \
+            --wait --timeout 10m \
+            -f kubernetes/base/prometheus/helm-values.yaml \
+            -f kubernetes/overlays/prod/helm-values-prometheus.yaml \
+            --set "prometheus.serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${{ steps.vals.outputs.prom_role }}" \
+            --set "prometheus.prometheusSpec.remoteWrite[0].url=${{ steps.vals.outputs.remote_write_url }}"
+
+      - name: Deploy Loki
+        run: |
+          helm upgrade --install loki \
+            grafana/loki-distributed \
+            --namespace logging --create-namespace \
+            --wait --timeout 10m \
+            -f kubernetes/base/loki/helm-values.yaml \
+            --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${{ steps.vals.outputs.loki_role }}" \
+            --set "loki.storage.s3.bucketnames=${{ steps.vals.outputs.loki_bucket }}"
+
+      - name: Apply manifests
+        run: kubectl apply -k kubernetes/overlays/prod
+
+      - name: Sync dashboards
+        run: ./scripts/sync-dashboards.sh prod
+        env:
+          GRAFANA_URL: ${{ secrets.GRAFANA_URL_PROD }}
+          GRAFANA_SA_TOKEN: ${{ secrets.GRAFANA_SA_TOKEN_PROD }}
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status statefulset/prometheus-kube-prometheus-prometheus \
+            -n monitoring --timeout=300s
 
       - name: Smoke test
         run: |

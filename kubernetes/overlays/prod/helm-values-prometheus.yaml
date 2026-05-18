@@ -1,0 +1,15 @@
+prometheus:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: ""  # set at deploy time via --set
+
+  prometheusSpec:
+    replicas: 2
+    retention: 4h
+    retentionSize: 40GB
+    resources:
+      requests:
+        cpu: "1"
+        memory: 4Gi
+      limits:
+        memory: 8Gi

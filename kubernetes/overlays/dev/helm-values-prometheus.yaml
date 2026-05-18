@@ -1,0 +1,14 @@
+prometheus:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::615299732970:role/observability-dev-prometheus
+
+  prometheusSpec:
+    remoteWrite:
+      - url: ""  # set at install time: ${AMP_ENDPOINT}api/v1/remote_write
+        sigv4:
+          region: us-east-1
+        queueConfig:
+          maxSamplesPerSend: 1000
+          maxShards: 200
+          capacity: 2500
