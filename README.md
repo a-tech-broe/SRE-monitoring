@@ -142,16 +142,7 @@ See [docs/github-secrets.md](docs/github-secrets.md) for the full list of secret
 
 ### 1. Configure GitHub Secrets
 
-Before anything runs in CI, add the required secrets to the repo:
-
-```
-GitHub → Settings → Secrets and variables → Actions
-```
-
-Required secrets: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ACCOUNT_ID`, `AWS_REGION`, `GRAFANA_URL_DEV`, `GRAFANA_SA_TOKEN_DEV`, `GRAFANA_URL_PROD`, `GRAFANA_SA_TOKEN_PROD`.
-Full list: [docs/github-secrets.md](docs/github-secrets.md)
-
-### 2. Bootstrap your workstation
+### 1. Install tools
 
 ```bash
 make bootstrap
@@ -159,26 +150,89 @@ make bootstrap
 
 Installs: terraform, kubectl, helm, tflint, checkov, pre-commit.
 
-### 3. Deploy infrastructure
+### 2. Add GitHub Secrets
+
+Go to **Settings → Secrets and variables → Actions** and add:
+
+| Secret | Description |
+|--------|-------------|
+| `AWS_ACCESS_KEY_ID` | IAM user access key ID |
+| `AWS_SECRET_ACCESS_KEY` | IAM user secret access key |
+| `AWS_ACCOUNT_ID` | 12-digit AWS account ID |
+| `AWS_REGION` | `us-east-1` |
+| `EKS_CLUSTER_DEV` | `observability-dev` |
+| `EKS_CLUSTER_PROD` | `observability-prod` |
+| `GRAFANA_SA_TOKEN_DEV` | Grafana service account token for dev |
+| `GRAFANA_SA_TOKEN_PROD` | Grafana service account token for prod |
+
+Full reference: [docs/github-secrets.md](docs/github-secrets.md)
+
+### 3. Deploy AWS infrastructure (Terraform)
+
+Run this once locally to provision VPC, EKS, AMP, Grafana, IAM, and S3:
 
 ```bash
+export TF_VAR_aws_account_id=<your-account-id>
+
 make init ENV=dev
-make plan ENV=dev
-make apply ENV=dev
+make plan-dev
+make apply-dev
 ```
 
-### 4. Deploy the monitoring stack
+This creates the EKS cluster, networking, IAM roles, AMP workspace, and Grafana workspace. After this step CI takes over for subsequent changes.
+
+### 4. Connect to the cluster
 
 ```bash
 aws eks update-kubeconfig --name observability-dev --region us-east-1
+kubectl get nodes   # confirm nodes are Ready
+```
+
+### 5. Install kube-prometheus-stack and Loki via Helm
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+# Prometheus Operator + Alertmanager
+helm upgrade --install kube-prometheus prometheus-community/kube-prometheus-stack \
+  --namespace monitoring --create-namespace \
+  -f kubernetes/base/prometheus/helm-values.yaml
+
+# Loki
+helm upgrade --install loki grafana/loki-distributed \
+  --namespace logging --create-namespace \
+  -f kubernetes/base/loki/helm-values.yaml
+```
+
+### 6. Apply Kubernetes manifests (IRSA annotations, ServiceMonitors, CRs)
+
+```bash
 make deploy-dev
 ```
 
-### 5. Validate everything locally
+### 7. Verify everything is running
 
 ```bash
-./scripts/validate.sh
+kubectl get pods -n monitoring
+kubectl get pods -n logging
+kubectl rollout status statefulset/prometheus-kube-prometheus-prometheus -n monitoring
 ```
+
+### 8. Open Grafana
+
+```bash
+aws grafana list-workspaces --region us-east-1 \
+  --query 'workspaces[?name==`observability-dev-grafana-ws`].endpoint' \
+  --output text
+```
+
+Open `https://<endpoint>` and sign in with AWS IAM Identity Center.
+
+---
+
+> Repeat steps 3–8 with `ENV=prod` to deploy the production environment.
 
 ---
 
