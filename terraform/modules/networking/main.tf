@@ -113,7 +113,6 @@ resource "aws_kms_key" "flow_log" {
   tags                    = var.tags
 }
 
-#checkov:skip=CKV2_AWS_12:Default SG managed separately outside this module
 resource "aws_cloudwatch_log_group" "flow_log" {
   name              = "/aws/vpc/${var.name}/flow-logs"
   retention_in_days = 365

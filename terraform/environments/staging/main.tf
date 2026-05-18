@@ -67,9 +67,6 @@ module "amp" {
   tags            = local.common_tags
 }
 
-#checkov:skip=CKV_AWS_18:Access logging not required for a log-storage bucket
-#checkov:skip=CKV_AWS_144:Cross-region replication not required
-#checkov:skip=CKV2_AWS_62:Event notifications not required for Loki chunk storage
 resource "aws_s3_bucket" "loki" {
   bucket = "${local.name}-loki-chunks-${var.aws_account_id}"
   tags   = local.common_tags

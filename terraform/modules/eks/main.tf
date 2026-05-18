@@ -87,7 +87,6 @@ resource "aws_eks_cluster" "this" {
 
 # ── KMS key for envelope encryption ──────────────────────────────────────────
 
-#checkov:skip=CKV2_AWS_64:Default KMS key policy grants account root full control, which is sufficient
 resource "aws_kms_key" "eks" {
   description             = "EKS secrets encryption — ${var.cluster_name}"
   deletion_window_in_days = 30
