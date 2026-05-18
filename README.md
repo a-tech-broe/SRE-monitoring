@@ -227,11 +227,29 @@ Dashboards live as JSON under `dashboards/` and are synced to Grafana on every m
 
 ---
 
+## Grafana Access
+
+Grafana runs on Amazon Managed Grafana, authenticated via AWS IAM Identity Center.
+
+**Sign in:**
+1. Get the workspace URL:
+   ```bash
+   aws grafana list-workspaces --region us-east-1 \
+     --query 'workspaces[?name==`observability-dev-grafana-ws`].endpoint' --output text
+   ```
+2. Open `https://<endpoint>` in your browser
+3. Click **Sign in with AWS IAM Identity Center**
+4. Use your IAM Identity Center credentials (password setup email sent to registered address)
+
+**User provisioning** is managed in Terraform — add users to the `admin_users` or `editor_users` lists in the environment's `main.tf`. No manual console steps required.
+
+---
+
 ## Security
 
 - **No credentials in the repo** — AWS auth uses GitHub OIDC; account IDs injected from GitHub Secrets
-- EKS API endpoint is **private-only** across all environments
-- All pod identities use **IRSA** — no static IAM keys anywhere in the stack
+- EKS API endpoint is **private-only** in staging and prod; dev has a temporary public endpoint for testing
+- All pod identities use **IRSA** (trust policies scoped to `system:serviceaccount:<ns>:<sa>`) — no static IAM keys anywhere in the stack
 - S3 buckets: private, SSE-S3 encrypted, public access blocked
 - EKS secrets encrypted with a per-cluster **KMS** key
 - **VPC Flow Logs** enabled on all VPCs

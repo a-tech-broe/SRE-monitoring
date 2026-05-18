@@ -1,5 +1,10 @@
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
+data "aws_ssoadmin_instances" "this" {}
+
+locals {
+  identity_store_id = tolist(data.aws_ssoadmin_instances.this.identity_store_ids)[0]
+}
 
 # ── Workspace execution role ──────────────────────────────────────────────────
 # Required when account_access_type = "CURRENT_ACCOUNT"
@@ -68,4 +73,72 @@ resource "aws_grafana_workspace_api_key" "admin" {
   key_role        = "ADMIN"
   seconds_to_live = 3600
   workspace_id    = aws_grafana_workspace.this.id
+}
+
+# ── IAM Identity Center user provisioning ─────────────────────────────────────
+
+resource "aws_identitystore_user" "admins" {
+  for_each          = { for u in var.admin_users : u.username => u }
+  identity_store_id = local.identity_store_id
+
+  display_name = each.value.display_name
+  user_name    = each.value.username
+
+  name {
+    given_name  = each.value.given_name
+    family_name = each.value.family_name
+  }
+
+  emails {
+    value   = each.value.email
+    type    = "work"
+    primary = true
+  }
+}
+
+resource "aws_identitystore_user" "editors" {
+  for_each          = { for u in var.editor_users : u.username => u }
+  identity_store_id = local.identity_store_id
+
+  display_name = each.value.display_name
+  user_name    = each.value.username
+
+  name {
+    given_name  = each.value.given_name
+    family_name = each.value.family_name
+  }
+
+  emails {
+    value   = each.value.email
+    type    = "work"
+    primary = true
+  }
+}
+
+# ── Workspace role assignments ─────────────────────────────────────────────────
+
+locals {
+  all_admin_user_ids  = [for u in aws_identitystore_user.admins : u.user_id]
+  all_editor_user_ids = [for u in aws_identitystore_user.editors : u.user_id]
+}
+
+resource "aws_grafana_role_association" "admins_users" {
+  count        = length(local.all_admin_user_ids) > 0 ? 1 : 0
+  role         = "ADMIN"
+  user_ids     = local.all_admin_user_ids
+  workspace_id = aws_grafana_workspace.this.id
+}
+
+resource "aws_grafana_role_association" "admins_groups" {
+  count        = length(var.admin_group_ids) > 0 ? 1 : 0
+  role         = "ADMIN"
+  group_ids    = var.admin_group_ids
+  workspace_id = aws_grafana_workspace.this.id
+}
+
+resource "aws_grafana_role_association" "editors_users" {
+  count        = length(local.all_editor_user_ids) > 0 ? 1 : 0
+  role         = "EDITOR"
+  user_ids     = local.all_editor_user_ids
+  workspace_id = aws_grafana_workspace.this.id
 }

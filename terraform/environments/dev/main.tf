@@ -61,6 +61,14 @@ module "eks" {
   endpoint_public_access  = true
   public_access_cidrs     = ["0.0.0.0/0"] # dev testing only — revert before staging/prod
 
+  # aws-ebs-csi-driver is managed as a standalone resource below so its
+  # IRSA role ARN can be wired in without creating a module cycle.
+  cluster_addons = {
+    coredns    = ""
+    kube-proxy = ""
+    vpc-cni    = ""
+  }
+
   tags = local.common_tags
 }
 
@@ -112,10 +120,29 @@ module "iam" {
   tags = local.common_tags
 }
 
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name             = module.eks.cluster_name
+  addon_name               = "aws-ebs-csi-driver"
+  service_account_role_arn = module.iam.ebs_csi_role_arn
+  resolve_conflicts_on_update = "OVERWRITE"
+  tags                     = local.common_tags
+}
+
 module "grafana" {
   source = "../../modules/grafana"
 
-  workspace_name   = "${local.name}-grafana"
+  workspace_name   = "${local.name}-grafana-ws"
   amp_workspace_id = module.amp.workspace_id
-  tags             = local.common_tags
+
+  admin_users = [
+    {
+      username     = "parah"
+      display_name = "Jen Rill"
+      given_name   = "Jen"
+      family_name  = "Rill"
+      email        = "jen4rill@live.com"
+    }
+  ]
+
+  tags = local.common_tags
 }

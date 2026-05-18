@@ -49,10 +49,6 @@ resource "aws_iam_role_policy_attachment" "node_policies" {
     "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
     "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
     "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
-    # EBS CSI driver needs EBS permissions on the node role to avoid a
-    # circular dependency between the EKS module (OIDC provider) and
-    # the IAM module (IRSA roles).
-    "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy",
   ])
   role       = aws_iam_role.node.name
   policy_arn = each.value
