@@ -15,37 +15,22 @@ GitHub repo → Settings → Secrets and variables → Actions → New repositor
 
 ## Required Secrets
 
-### AWS Authentication (OIDC — no static keys)
+### AWS Authentication (static IAM user credentials)
 
 | Secret name | Description |
 |-------------|-------------|
-| `AWS_ROLE_DEV` | IAM role ARN for OIDC auth in dev account |
-| `AWS_ROLE_PROD` | IAM role ARN for OIDC auth in prod account |
+| `AWS_ACCESS_KEY_ID` | Access key ID for the CI IAM user |
+| `AWS_SECRET_ACCESS_KEY` | Secret access key for the CI IAM user |
 
-These roles must have a trust policy allowing `token.actions.githubusercontent.com` to assume them. Example:
+Both environments share the same AWS account. Create a single dedicated CI IAM user, generate an access key, and store both values as secrets above.
 
-```json
-{
-  "Effect": "Allow",
-  "Principal": { "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com" },
-  "Action": "sts:AssumeRoleWithWebIdentity",
-  "Condition": {
-    "StringEquals": {
-      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-      "token.actions.githubusercontent.com:sub": "repo:your-org/SRE-monitoring:ref:refs/heads/main"
-    }
-  }
-}
-```
-
-### AWS Account IDs (injected as TF_VAR_aws_account_id)
+### AWS Account ID (injected as TF_VAR_aws_account_id)
 
 | Secret name | Description |
 |-------------|-------------|
-| `AWS_ACCOUNT_ID_DEV` | 12-digit AWS account ID for dev |
-| `AWS_ACCOUNT_ID_PROD` | 12-digit AWS account ID for prod |
+| `AWS_ACCOUNT_ID` | 12-digit AWS account ID (shared by dev and prod) |
 
-These are passed to Terraform as `TF_VAR_aws_account_id` — they never appear in committed files.
+Passed to Terraform as `TF_VAR_aws_account_id` — never appears in committed files.
 
 ### Grafana
 
