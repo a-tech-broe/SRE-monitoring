@@ -122,8 +122,6 @@ module "iam" {
   cluster_name      = module.eks.cluster_name
   oidc_provider_arn = module.eks.oidc_provider_arn
   oidc_issuer_url   = module.eks.oidc_issuer_url
-  aws_account_id    = var.aws_account_id
-  aws_region        = var.aws_region
   amp_workspace_arn = module.amp.workspace_arn
   loki_bucket_arn   = aws_s3_bucket.loki.arn
 
