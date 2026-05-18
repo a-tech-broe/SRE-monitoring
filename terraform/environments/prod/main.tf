@@ -80,6 +80,9 @@ module "amp" {
   tags            = local.common_tags
 }
 
+#checkov:skip=CKV_AWS_18:Access logging not required for a log-storage bucket
+#checkov:skip=CKV_AWS_144:Cross-region replication not required
+#checkov:skip=CKV2_AWS_62:Event notifications not required for Loki chunk storage
 resource "aws_s3_bucket" "loki" {
   bucket = "${local.name}-loki-chunks-${var.aws_account_id}"
   tags   = local.common_tags
@@ -93,7 +96,7 @@ resource "aws_s3_bucket_versioning" "loki" {
 resource "aws_s3_bucket_server_side_encryption_configuration" "loki" {
   bucket = aws_s3_bucket.loki.id
   rule {
-    apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
+    apply_server_side_encryption_by_default { sse_algorithm = "aws:kms" }
   }
 }
 
@@ -111,6 +114,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "loki" {
   rule {
     id     = "expire-old-chunks"
     status = "Enabled"
+    abort_incomplete_multipart_upload { days_after_initiation = 7 }
     expiration { days = 90 }
   }
 }

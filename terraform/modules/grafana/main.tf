@@ -43,8 +43,13 @@ data "aws_iam_policy_document" "grafana_amp" {
       "aps:GetSeries",
       "aps:GetLabels",
       "aps:GetMetricMetadata",
-      "aps:ListWorkspaces",
     ]
+    resources = ["arn:aws:aps:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:workspace/${var.amp_workspace_id}"]
+  }
+
+  statement {
+    sid       = "AMPListWorkspaces"
+    actions   = ["aps:ListWorkspaces"]
     resources = ["*"]
   }
 }

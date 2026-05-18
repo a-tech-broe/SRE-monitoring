@@ -19,7 +19,10 @@ jobs:
       - uses: terraform-linters/setup-tflint@v4
         with:
           tflint_version: v0.51.1
-      - run: tflint --recursive terraform/
+      - name: tflint
+        run: |
+          find terraform/ -type f -name "*.tf" -exec dirname {} \; | sort -u | \
+          while read -r dir; do tflint --chdir="$dir"; done
 
   yaml-lint:
     name: YAML lint
@@ -69,4 +72,9 @@ jobs:
         env: [dev, staging, prod]
     steps:
       - uses: actions/checkout@v4
-      - run: kubectl kustomize kubernetes/overlays/${{ matrix.env }} > /dev/null
+      - name: Install kustomize
+        run: |
+          curl -sLo /tmp/kustomize.tar.gz \
+            "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.4.3/kustomize_v5.4.3_linux_amd64.tar.gz"
+          tar -xzf /tmp/kustomize.tar.gz -C /usr/local/bin
+      - run: kustomize build kubernetes/overlays/${{ matrix.env }} > /dev/null

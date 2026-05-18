@@ -8,7 +8,8 @@ resources:
   - ../../base/ingress
 
 labels:
-  environment: prod
+  - pairs:
+      environment: prod
 
 patches:
   - path: patches/prometheus-irsa.yaml
